@@ -1,0 +1,159 @@
+---
+title: "244 Assignment 1"
+author: "Taylor Heisley-Cook"
+date: "1/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Task 1. #TidyTuesday - space launches!
+
+
+```{r data wrangling, echo = TRUE, include = TRUE, message = FALSE}
+
+library(tidyverse)
+library(boot)
+library(naniar)
+library(simputation)
+library(janitor)
+library(MASS)
+library(ggrepel)
+library(RColorBrewer)
+library(factoextra)
+library(ggbiplot)
+library(dplyr)
+select <- dplyr::select
+
+agencies <- read_csv('agencies.csv')
+launches <- read_csv('launches.csv')
+
+```
+
+
+
+```{r data vis, echo = TRUE, warning=FALSE, include=TRUE, message = FALSE, error=FALSE}
+
+agencies$start_date <- substr(agencies$tstart, 1, 4)
+agencies$start_date <- as.numeric(agencies$start_date)
+
+
+agency_df <- agencies %>% 
+  select('agency', 'count', 'state_code', 'agency_type', 'start_date') %>%
+  filter(start_date > 1900, start_date != "NA")
+
+launch_df <- launches %>% 
+  select(launch_year, agency, state_code, category, agency_type)
+
+counts_launches <- launch_df %>% 
+  group_by(state_code, agency_type) %>% 
+  tally()
+
+counts_state_launches <- launch_df %>% 
+  group_by(state_code) %>% 
+  tally()
+
+counts_df <- as.data.frame(counts_launches)
+counts_df <- setNames(counts_df, c("state_code","agency_type","count"))
+
+#ggplot(launch_df, aes(x = state_code)) +
+#  geom_histogram(aes(fill = agency_type), stat = "count") +
+#  scale_fill_brewer(palette = "YlGnBu") +
+#  theme_light() +
+#  theme(legend.position = "NA")
+#  facet_wrap(~ethnicity, scales = "free")
+
+type_time_graph <- ggplot(launch_df, aes(x = launch_year)) +
+  geom_bar(aes(fill = agency_type), stat = 'count') +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme_classic() +
+  labs(title = 'Type of Rocket Launch Agencies (1955-2018)', x = "Year", y = "Number of Launches") +
+  theme(legend.title=element_blank()) +
+  scale_y_continuous(expand = c(0,0))
+
+type_time_graph
+
+
+```
+
+
+
+
+```{r states, echo = TRUE, include = TRUE, warnings = FALSE, message = FALSE}
+
+
+states_less <- launch_df %>% 
+  filter(state_code == 'SU' | state_code == 'US'|state_code == 'RU'|state_code == 'CN'|state_code == 'F'|state_code == 'J'|state_code == 'IN')
+
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "US", "United States")
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "SU", "Soviet Union")
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "F", "France")
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "J", "Japan")
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "CN", "Canada")
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "IN", "India")
+states_less$state_code <- replace(as.character(states_less$state_code),
+                                    states_less$state_code == "RU", "Russia")
+
+states_count_graphs <- ggplot(states_less, aes(x = launch_year)) +
+  geom_bar(aes(fill = state_code), stat = 'count') +
+  theme_classic() +
+  theme(legend.title=element_blank()) + 
+  scale_fill_brewer(palette = "YlGnBu") +
+  labs(title = 'Annual Rocket Launches by Country (1955-2018)', x = "Year", y = "Number of Launches") +
+  scale_y_continuous(expand = c(0,0))
+
+states_count_graphs
+
+```
+
+##Task 2. PCA for raw fruit and vegetable nutrients
+
+```{r fruits1, echo=TRUE, include=TRUE, error=FALSE, warning=FALSE, message=FALSE}
+
+froots_og <- read.csv('usda_nutrients.csv') 
+
+froots <- froots_og%>% 
+  filter(FoodGroup == 'Vegetables and Vegetable Products' | FoodGroup == 'Fruits and Fruit Juices') %>% 
+  filter(str_detect(ShortDescrip, "RAW"))
+
+froots$FoodGroup <- as.factor(froots$FoodGroup)
+
+# Now for PCA!
+
+froots_pca <- prcomp(froots[9:30], scale = TRUE)
+#summary(froots_pca)
+
+#fviz_screeplot(froots_pca, addlabels = TRUE, ylim = c(0, 50))
+
+#fviz_contrib(froots_pca, choice = 'var', axes = 1, top = 6)
+
+# Interesting to note that hosphorus (mg), protein (g), zinc (mg), riboflavin (mg), magnesium (mg), iron (mg) are the top 6 influencers
+
+fviz_pca_biplot(froots_pca, 
+                  col.var = 'cos2',
+                  label = 'var',
+                #habillage = froots$FoodGroup,
+                  fill.ind = froots$FoodGroup,
+                  repel = TRUE) 
+
+# Allison, I'm so sorry, but I can't figure out how to get these colors changed by group. It's 4am and I have to go to sleep.
+
+```
+
+Observations:
+
+Sugar is negatively correlated to protein.
+
+B12 is not correlated to magnesium.
+
+Protein and zinc are correlated.
+
+Sugar and vitamin C are correlated.
